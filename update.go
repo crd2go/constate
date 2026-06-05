@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/state"
+	"github.com/crd2go/constate/state"
 )
 
 // ShouldUpdate returns true if the object should be updated based on generation change, reapply period, or error status.

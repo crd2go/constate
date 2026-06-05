@@ -37,8 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/internal/controller/customresource"
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/state"
+	
+	"github.com/crd2go/constate/state"
 )
 
 func TestGetObservedGeneration(t *testing.T) {
@@ -557,7 +557,7 @@ func (do *dummyObject) WithSkipReconciliationAnnotation() *dummyObject {
 	if copyOfDo.Annotations == nil {
 		copyOfDo.Annotations = make(map[string]string)
 	}
-	copyOfDo.Annotations[customresource.ReconciliationPolicyAnnotation] = customresource.ReconciliationPolicySkip
+	copyOfDo.Annotations[reconciliationPolicyAnnotation] = reconciliationPolicySkip
 
 	return copyOfDo
 }

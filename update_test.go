@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/state"
+	"github.com/crd2go/constate/state"
 )
 
 // statusObj embeds an Unstructured to satisfy metav1.Object and

@@ -20,7 +20,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/state"
+	"github.com/crd2go/constate/state"
 )
 
 func TestGetState(t *testing.T) {

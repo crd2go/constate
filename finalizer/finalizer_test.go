@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/finalizer"
+	"github.com/crd2go/constate/finalizer"
 )
 
 func TestUnsetFinalizers(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	ctrlstate "github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/controller/state"
+	ctrlstate "github.com/crd2go/constate"
 )
 
 func TestGetExternalID(t *testing.T) {

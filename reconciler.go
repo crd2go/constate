@@ -34,10 +34,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/internal/controller/customresource"
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/crapi"
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/finalizer"
-	"github.com/mongodb/mongodb-atlas-kubernetes/v2/pkg/state"
+	"github.com/crd2go/constate/finalizer"
+	"github.com/crd2go/constate/state"
+)
+
+const (
+	reconciliationPolicyAnnotation = "mongodb.com/atlas-reconciliation-policy"
+	reconciliationPolicySkip       = "skip"
 )
 
 type Result struct {
@@ -45,8 +48,6 @@ type Result struct {
 	NextState state.ResourceState
 	StateMsg  string
 }
-
-type VersionedHandlerFunc[C any, T any] func(client client.Client, atlasClient *C, translator crapi.Translator, deletionProtection bool) StateHandler[T]
 
 type StateHandler[T any] interface {
 	SetupWithManager(ctrl.Manager, reconcile.Reconciler, controller.Options) error
@@ -135,8 +136,8 @@ func (r *Reconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (reconc
 
 	currentState := state.GetState(obj.GetConditions())
 
-	if customresource.ReconciliationShouldBeSkipped(clientObj) {
-		logger.Info(fmt.Sprintf("Skipping reconciliation by annotation %s=%s", customresource.ReconciliationPolicyAnnotation, customresource.ReconciliationPolicySkip))
+	if reconciliationShouldBeSkipped(clientObj) {
+		logger.Info(fmt.Sprintf("Skipping reconciliation by annotation %s=%s", reconciliationPolicyAnnotation, reconciliationPolicySkip))
 		if currentState == state.StateDeleted {
 			if err := finalizer.UnsetFinalizers(ctx, r.cluster.GetClient(), clientObj, "mongodb.com/finalizer"); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to unset finalizer: %w", err)
@@ -369,4 +370,11 @@ func getObservedGeneration(obj client.Object, prevStatusConditions []metav1.Cond
 	}
 
 	return observedGeneration
+}
+
+func reconciliationShouldBeSkipped(resource metav1.Object) bool {
+	if v, ok := resource.GetAnnotations()[reconciliationPolicyAnnotation]; ok {
+		return v == reconciliationPolicySkip
+	}
+	return false
 }
