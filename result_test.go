@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package result
+package constate
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	ctrlstate "github.com/crd2go/constate"
-	"github.com/crd2go/constate/state"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -30,110 +28,110 @@ var defaultRequeueResult = reconcile.Result{RequeueAfter: 15 * time.Second}
 func TestNextState(t *testing.T) {
 	tests := []struct {
 		name        string
-		state       state.ResourceState
+		state       ResourceState
 		msg         string
-		expected    ctrlstate.Result
+		expected    Result
 		expectedErr error
 	}{
 		{
 			name:  "StateInitial",
-			state: state.StateInitial,
+			state: StateInitial,
 			msg:   "",
-			expected: ctrlstate.Result{
-				NextState: state.StateInitial,
+			expected: Result{
+				NextState: StateInitial,
 				StateMsg:  "",
 			},
 		},
 		{
 			name:  "StateCreated",
-			state: state.StateCreated,
+			state: StateCreated,
 			msg:   "Resource created",
-			expected: ctrlstate.Result{
-				NextState: state.StateCreated,
+			expected: Result{
+				NextState: StateCreated,
 				StateMsg:  "Resource created.",
 			},
 		},
 		{
 			name:  "StateCreating with requeue",
-			state: state.StateCreating,
+			state: StateCreating,
 			msg:   "Creating resource",
-			expected: ctrlstate.Result{
+			expected: Result{
 				Result:    defaultRequeueResult,
-				NextState: state.StateCreating,
+				NextState: StateCreating,
 				StateMsg:  "Creating resource.",
 			},
 		},
 		{
 			name:  "StateUpdated",
-			state: state.StateUpdated,
+			state: StateUpdated,
 			msg:   "Resource updated",
-			expected: ctrlstate.Result{
-				NextState: state.StateUpdated,
+			expected: Result{
+				NextState: StateUpdated,
 				StateMsg:  "Resource updated.",
 			},
 		},
 		{
 			name:  "StateUpdating with requeue",
-			state: state.StateUpdating,
+			state: StateUpdating,
 			msg:   "Updating resource",
-			expected: ctrlstate.Result{
+			expected: Result{
 				Result:    defaultRequeueResult,
-				NextState: state.StateUpdating,
+				NextState: StateUpdating,
 				StateMsg:  "Updating resource.",
 			},
 		},
 		{
 			name:  "StateDeleted",
-			state: state.StateDeleted,
+			state: StateDeleted,
 			msg:   "Resource deleted",
-			expected: ctrlstate.Result{
-				NextState: state.StateDeleted,
+			expected: Result{
+				NextState: StateDeleted,
 				StateMsg:  "Resource deleted.",
 			},
 		},
 		{
 			name:  "StateDeletionRequested",
-			state: state.StateDeletionRequested,
+			state: StateDeletionRequested,
 			msg:   "Resource delete",
-			expected: ctrlstate.Result{
+			expected: Result{
 				Result:    defaultRequeueResult,
-				NextState: state.StateDeletionRequested,
+				NextState: StateDeletionRequested,
 				StateMsg:  "Resource delete.",
 			},
 		},
 		{
 			name:  "StateDeleting",
-			state: state.StateDeleting,
+			state: StateDeleting,
 			msg:   "Deleting resource",
-			expected: ctrlstate.Result{
+			expected: Result{
 				Result:    defaultRequeueResult,
-				NextState: state.StateDeleting,
+				NextState: StateDeleting,
 				StateMsg:  "Deleting resource.",
 			},
 		},
 		{
 			name:  "StateImported",
-			state: state.StateImported,
+			state: StateImported,
 			msg:   "Resource imported",
-			expected: ctrlstate.Result{
-				NextState: state.StateImported,
+			expected: Result{
+				NextState: StateImported,
 				StateMsg:  "Resource imported.",
 			},
 		},
 		{
 			name:  "StateImportRequested",
-			state: state.StateImportRequested,
+			state: StateImportRequested,
 			msg:   "Resource import",
-			expected: ctrlstate.Result{
-				NextState: state.StateImportRequested,
+			expected: Result{
+				NextState: StateImportRequested,
 				StateMsg:  "Resource import.",
 			},
 		},
 		{
 			name:        "Unknown state",
-			state:       state.ResourceState("Unknown"),
+			state:       ResourceState("Unknown"),
 			msg:         "Unknown state",
-			expectedErr: fmt.Errorf("unknown state %v", state.ResourceState("Unknown")),
+			expectedErr: fmt.Errorf("unknown state %v", ResourceState("Unknown")),
 		},
 	}
 
@@ -150,13 +148,13 @@ func TestNextState(t *testing.T) {
 	}
 }
 
-func TestError(t *testing.T) {
+func TestErrorState(t *testing.T) {
 	err := fmt.Errorf("an error occurred")
-	st := state.StateCreating
+	st := StateCreating
 
-	s, returnedErr := Error(st, err)
+	s, returnedErr := ErrorState(st, err)
 
-	require.Equal(t, ctrlstate.Result{
+	require.Equal(t, Result{
 		Result: reconcile.Result{
 			Requeue:      false,
 			RequeueAfter: 0,

@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/crd2go/constate/finalizer"
-	"github.com/crd2go/constate/state"
 )
 
 const (
@@ -45,7 +44,7 @@ const (
 
 type Result struct {
 	reconcile.Result
-	NextState state.ResourceState
+	NextState ResourceState
 	StateMsg  string
 }
 
@@ -134,11 +133,11 @@ func (r *Reconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (reconc
 		return ctrl.Result{}, fmt.Errorf("unable to get object: %w", err)
 	}
 
-	currentState := state.GetState(obj.GetConditions())
+	currentState := GetState(obj.GetConditions())
 
 	if reconciliationShouldBeSkipped(clientObj) {
 		logger.Info(fmt.Sprintf("Skipping reconciliation by annotation %s=%s", reconciliationPolicyAnnotation, reconciliationPolicySkip))
-		if currentState == state.StateDeleted {
+		if currentState == StateDeleted {
 			if err := finalizer.UnsetFinalizers(ctx, r.cluster.GetClient(), clientObj, "mongodb.com/finalizer"); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to unset finalizer: %w", err)
 			}
@@ -155,7 +154,7 @@ func (r *Reconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (reconc
 	result, reconcileErr := r.ReconcileState(ctx, t)
 	stateStatus := true
 	if reconcileErr != nil {
-		// error message will be displayed in Ready state.
+		// error message will be displayed in Ready
 		stateStatus = false
 	}
 
@@ -168,11 +167,11 @@ func (r *Reconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (reconc
 		}
 		newStatusConditions = append(newStatusConditions, *c)
 	}
-	state.EnsureState(&newStatusConditions, observedGeneration, result.NextState, result.StateMsg, stateStatus)
+	EnsureState(&newStatusConditions, observedGeneration, result.NextState, result.StateMsg, stateStatus)
 
 	logger.Info("reconcile finished", "nextState", result.NextState)
 
-	if result.NextState == state.StateDeleted {
+	if result.NextState == StateDeleted {
 		if err := finalizer.UnsetFinalizers(ctx, r.cluster.GetClient(), clientObj, "mongodb.com/finalizer"); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to unset finalizer: %w", err)
 		}
@@ -204,47 +203,47 @@ func NewReadyCondition(result Result) metav1.Condition {
 	)
 
 	switch result.NextState {
-	case state.StateInitial:
+	case StateInitial:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
-		msg = "Resource is in initial state."
+		msg = "Resource is in initial "
 
-	case state.StateImportRequested:
+	case StateImportRequested:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
 		msg = "Resource is being imported."
 
-	case state.StateCreating:
+	case StateCreating:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
 		msg = "Resource is pending."
 
-	case state.StateUpdating:
+	case StateUpdating:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
 		msg = "Resource is pending."
 
-	case state.StateDeleting:
+	case StateDeleting:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
 		msg = "Resource is pending."
 
-	case state.StateDeletionRequested:
+	case StateDeletionRequested:
 		cond = metav1.ConditionFalse
 		readyReason = ReadyReasonPending
 		msg = "Resource is pending."
 
-	case state.StateImported:
+	case StateImported:
 		cond = metav1.ConditionTrue
 		readyReason = ReadyReasonSettled
 		msg = "Resource is imported."
 
-	case state.StateCreated:
+	case StateCreated:
 		cond = metav1.ConditionTrue
 		readyReason = ReadyReasonSettled
 		msg = "Resource is settled."
 
-	case state.StateUpdated:
+	case StateUpdated:
 		cond = metav1.ConditionTrue
 		readyReason = ReadyReasonSettled
 		msg = "Resource is settled."
@@ -256,7 +255,7 @@ func NewReadyCondition(result Result) metav1.Condition {
 	}
 
 	return metav1.Condition{
-		Type:               state.ReadyCondition,
+		Type:               ReadyCondition,
 		Status:             cond,
 		LastTransitionTime: metav1.NewTime(time.Now()),
 		Reason:             readyReason,
@@ -270,50 +269,50 @@ func (r *Reconciler[T]) ReconcileState(ctx context.Context, t *T) (Result, error
 	var (
 		result = Result{
 			Result:    reconcile.Result{},
-			NextState: state.StateInitial,
+			NextState: StateInitial,
 		}
 
 		err error
 	)
-	currentState := state.GetState(any(t).(StatusObject).GetConditions())
+	currentState := GetState(any(t).(StatusObject).GetConditions())
 
-	if currentState == state.StateInitial {
+	if currentState == StateInitial {
 		for key := range obj.GetAnnotations() {
 			if strings.HasPrefix(key, "mongodb.com/external-") {
-				currentState = state.StateImportRequested
+				currentState = StateImportRequested
 			}
 		}
 	}
 
-	if !obj.GetDeletionTimestamp().IsZero() && currentState != state.StateDeleting {
-		currentState = state.StateDeletionRequested
+	if !obj.GetDeletionTimestamp().IsZero() && currentState != StateDeleting {
+		currentState = StateDeletionRequested
 	}
 
 	switch currentState {
-	case state.StateInitial:
+	case StateInitial:
 		result, err = r.reconciler.HandleInitial(ctx, t)
-	case state.StateImportRequested:
+	case StateImportRequested:
 		result, err = r.reconciler.HandleImportRequested(ctx, t)
-	case state.StateImported:
+	case StateImported:
 		result, err = r.reconciler.HandleImported(ctx, t)
-	case state.StateCreating:
+	case StateCreating:
 		result, err = r.reconciler.HandleCreating(ctx, t)
-	case state.StateCreated:
+	case StateCreated:
 		result, err = r.reconciler.HandleCreated(ctx, t)
-	case state.StateUpdating:
+	case StateUpdating:
 		result, err = r.reconciler.HandleUpdating(ctx, t)
-	case state.StateUpdated:
+	case StateUpdated:
 		result, err = r.reconciler.HandleUpdated(ctx, t)
-	case state.StateDeletionRequested:
+	case StateDeletionRequested:
 		result, err = r.reconciler.HandleDeletionRequested(ctx, t)
-	case state.StateDeleting:
+	case StateDeleting:
 		result, err = r.reconciler.HandleDeleting(ctx, t)
 	default:
 		return Result{}, fmt.Errorf("unsupported state %q", currentState)
 	}
 
 	if result.NextState == "" {
-		result.NextState = state.StateInitial
+		result.NextState = StateInitial
 	}
 
 	if r.supportReapply {
@@ -327,9 +326,9 @@ func (r *Reconciler[T]) ReconcileState(ctx context.Context, t *T) (Result, error
 }
 
 func (r *Reconciler[T]) reconcileReapply(ctx context.Context, obj client.Object, result Result, err error) error {
-	isReapplyState := result.NextState == state.StateImported ||
-		result.NextState == state.StateCreated ||
-		result.NextState == state.StateUpdated
+	isReapplyState := result.NextState == StateImported ||
+		result.NextState == StateCreated ||
+		result.NextState == StateUpdated
 
 	if isReapplyState && result.RequeueAfter == 0 && err == nil {
 		requeueAfter, err := PatchReapplyTimestamp(ctx, r.cluster.GetClient(), obj)
@@ -342,11 +341,11 @@ func (r *Reconciler[T]) reconcileReapply(ctx context.Context, obj client.Object,
 	return nil
 }
 
-func getObservedGeneration(obj client.Object, prevStatusConditions []metav1.Condition, nextState state.ResourceState) int64 {
+func getObservedGeneration(obj client.Object, prevStatusConditions []metav1.Condition, nextState ResourceState) int64 {
 	observedGeneration := obj.GetGeneration()
-	prevState := state.GetState(prevStatusConditions)
+	prevState := GetState(prevStatusConditions)
 
-	if prevCondition := meta.FindStatusCondition(prevStatusConditions, state.StateCondition); prevCondition != nil {
+	if prevCondition := meta.FindStatusCondition(prevStatusConditions, StateCondition); prevCondition != nil {
 		from := prevState
 		to := nextState
 
@@ -355,15 +354,15 @@ func getObservedGeneration(obj client.Object, prevStatusConditions []metav1.Cond
 		// - just finished creating/updating/deleting
 		observedGeneration = prevCondition.ObservedGeneration
 		switch {
-		case from == state.StateUpdating && to == state.StateUpdating: // polling update
-		case from == state.StateUpdating && to == state.StateUpdated: // finished updating
+		case from == StateUpdating && to == StateUpdating: // polling update
+		case from == StateUpdating && to == StateUpdated: // finished updating
 
-		case from == state.StateCreating && to == state.StateCreating: // polling creation
-		case from == state.StateCreating && to == state.StateCreated: // finished creating
+		case from == StateCreating && to == StateCreating: // polling creation
+		case from == StateCreating && to == StateCreated: // finished creating
 
-		case from == state.StateDeletionRequested && to == state.StateDeleting: // started deletion
-		case from == state.StateDeleting && to == state.StateDeleting: // polling deletion
-		case from == state.StateDeleting && to == state.StateDeleted: // finshed deletion
+		case from == StateDeletionRequested && to == StateDeleting: // started deletion
+		case from == StateDeleting && to == StateDeleting: // polling deletion
+		case from == StateDeleting && to == StateDeleted: // finshed deletion
 		default:
 			observedGeneration = obj.GetGeneration()
 		}

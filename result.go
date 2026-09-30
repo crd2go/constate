@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package result
+package constate
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	ctrlstate "github.com/crd2go/constate"
-	"github.com/crd2go/constate/state"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -28,65 +26,65 @@ const (
 	DefaultRequeueTime = 15 * time.Second
 )
 
-func NextState(s state.ResourceState, msg string) (ctrlstate.Result, error) {
+func NextState(s ResourceState, msg string) (Result, error) {
 	if len(msg) > 0 && !strings.HasSuffix(msg, ".") {
 		msg = msg + "."
 	}
 
 	switch s {
-	case state.StateCreated:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateCreated:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateImported:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateImported:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateUpdated:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateUpdated:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateDeleted:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateDeleted:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateInitial:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateInitial:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateImportRequested:
-		return ctrlstate.Result{NextState: s, StateMsg: msg}, nil
+	case StateImportRequested:
+		return Result{NextState: s, StateMsg: msg}, nil
 
-	case state.StateCreating:
-		return ctrlstate.Result{
+	case StateCreating:
+		return Result{
 			Result:    reconcile.Result{RequeueAfter: DefaultRequeueTime},
 			NextState: s,
 			StateMsg:  msg,
 		}, nil
 
-	case state.StateUpdating:
-		return ctrlstate.Result{
+	case StateUpdating:
+		return Result{
 			Result:    reconcile.Result{RequeueAfter: DefaultRequeueTime},
 			NextState: s,
 			StateMsg:  msg,
 		}, nil
 
-	case state.StateDeleting:
-		return ctrlstate.Result{
+	case StateDeleting:
+		return Result{
 			Result:    reconcile.Result{RequeueAfter: DefaultRequeueTime},
 			NextState: s,
 			StateMsg:  msg,
 		}, nil
 
-	case state.StateDeletionRequested:
-		return ctrlstate.Result{
+	case StateDeletionRequested:
+		return Result{
 			Result:    reconcile.Result{RequeueAfter: DefaultRequeueTime},
 			NextState: s,
 			StateMsg:  msg,
 		}, nil
 
 	default:
-		return ctrlstate.Result{}, fmt.Errorf("unknown state %v", s)
+		return Result{}, fmt.Errorf("unknown state %v", s)
 	}
 }
 
-func Error(s state.ResourceState, err error) (ctrlstate.Result, error) {
-	return ctrlstate.Result{
+func ErrorState(s ResourceState, err error) (Result, error) {
+	return Result{
 		NextState: s,
 	}, err
 }

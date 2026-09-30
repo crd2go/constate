@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/crd2go/constate/state"
 )
 
 // ShouldUpdate returns true if the object should be updated based on generation change, reapply period, or error status.
@@ -37,7 +35,7 @@ func ShouldUpdate(obj metav1.Object, dependencies ...client.Object) (bool, error
 	}
 
 	if statusObj, ok := obj.(StatusObject); ok {
-		if errorCondition := meta.FindStatusCondition(statusObj.GetConditions(), state.ReadyCondition); errorCondition != nil {
+		if errorCondition := meta.FindStatusCondition(statusObj.GetConditions(), ReadyCondition); errorCondition != nil {
 			hasErrorState = errorCondition.Reason == ReadyReasonError
 		}
 	}

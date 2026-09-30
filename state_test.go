@@ -12,59 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package state_test
+package constate_test
 
 import (
 	"testing"
+
+	"github.com/crd2go/constate"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/crd2go/constate/state"
 )
 
 func TestGetState(t *testing.T) {
 	tests := []struct {
 		name      string
 		conds     []metav1.Condition
-		wantState state.ResourceState
+		wantState constate.ResourceState
 	}{
 		{
 			name:      "no conditions returns initial",
 			conds:     nil,
-			wantState: state.StateInitial,
+			wantState: constate.StateInitial,
 		},
 		{
 			name:      "empty conditions returns initial",
 			conds:     []metav1.Condition{},
-			wantState: state.StateInitial,
+			wantState: constate.StateInitial,
 		},
 		{
 			name: "unrelated condition returns initial",
 			conds: []metav1.Condition{
 				{Type: "Other", Reason: "Ignored"},
 			},
-			wantState: state.StateInitial,
+			wantState: constate.StateInitial,
 		},
 		{
 			name: "state condition returns correct state",
 			conds: []metav1.Condition{
-				{Type: state.StateCondition, Reason: string(state.StateCreated)},
+				{Type: constate.StateCondition, Reason: string(constate.StateCreated)},
 			},
-			wantState: state.StateCreated,
+			wantState: constate.StateCreated,
 		},
 		{
 			name: "multiple conditions picks state condition",
 			conds: []metav1.Condition{
 				{Type: "Other", Reason: "Whatever"},
-				{Type: state.StateCondition, Reason: string(state.StateDeleted)},
+				{Type: constate.StateCondition, Reason: string(constate.StateDeleted)},
 			},
-			wantState: state.StateDeleted,
+			wantState: constate.StateDeleted,
 		},
 		{
 			name: "state condition with empty reason returns empty string state",
 			conds: []metav1.Condition{
-				{Type: state.StateCondition, Reason: ""},
+				{Type: constate.StateCondition, Reason: ""},
 			},
 			wantState: "",
 		},
@@ -72,7 +72,7 @@ func TestGetState(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := state.GetState(tc.conds)
+			got := constate.GetState(tc.conds)
 			if got != tc.wantState {
 				t.Errorf("GetState() = %v, want %v", got, tc.wantState)
 			}
@@ -86,21 +86,21 @@ func TestEnsureState(t *testing.T) {
 		name              string
 		status            bool
 		expectedCondition metav1.ConditionStatus
-		state             state.ResourceState
+		state             constate.ResourceState
 		msg               string
 	}{
 		{
 			name:              "sets ConditionTrue",
 			status:            true,
 			expectedCondition: metav1.ConditionTrue,
-			state:             state.StateImported,
+			state:             constate.StateImported,
 			msg:               "Import successful",
 		},
 		{
 			name:              "sets ConditionFalse",
 			status:            false,
 			expectedCondition: metav1.ConditionFalse,
-			state:             state.StateDeleting,
+			state:             constate.StateDeleting,
 			msg:               "Deletion in progress",
 		},
 	}
@@ -109,13 +109,13 @@ func TestEnsureState(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var conds []metav1.Condition
 			observedGen := int64(123)
-			state.EnsureState(&conds, observedGen, tc.state, tc.msg, tc.status)
+			constate.EnsureState(&conds, observedGen, tc.state, tc.msg, tc.status)
 			if len(conds) != 1 {
 				t.Fatalf("expected 1 condition, got %d", len(conds))
 			}
 			got := conds[0]
-			if got.Type != state.StateCondition {
-				t.Errorf("Condition Type = %v, want %v", got.Type, state.StateCondition)
+			if got.Type != constate.StateCondition {
+				t.Errorf("Condition Type = %v, want %v", got.Type, constate.StateCondition)
 			}
 			if got.Status != tc.expectedCondition {
 				t.Errorf("Condition Status = %v, want %v", got.Status, tc.expectedCondition)
