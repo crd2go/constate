@@ -12,7 +12,7 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-package state
+package constate_test
 
 import (
 	"strconv"
@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/crd2go/constate"
 	"github.com/crd2go/constate/state"
 )
 
@@ -43,7 +44,7 @@ func newStatusObj(gen int64, setStateTracker bool, conditions []metav1.Condition
 		u.SetGeneration(previousState.ObservedGeneration)
 		if setStateTracker {
 			u.SetAnnotations(map[string]string{
-				AnnotationStateTracker: ComputeStateTracker(u),
+				constate.AnnotationStateTracker: constate.ComputeStateTracker(u),
 			})
 		}
 	}
@@ -94,7 +95,7 @@ func TestShouldUpdate(t *testing.T) {
 			obj: newStatusObj(1, true, []metav1.Condition{
 				{
 					Type:   state.ReadyCondition,
-					Reason: ReadyReasonError,
+					Reason: constate.ReadyReasonError,
 				},
 				{
 					Type:               state.StateCondition,
@@ -110,7 +111,7 @@ func TestShouldUpdate(t *testing.T) {
 					Type:               state.StateCondition,
 					ObservedGeneration: 1,
 				},
-			}, AnnotationReapplyTimestamp, pastMillis,
+			}, constate.AnnotationReapplyTimestamp, pastMillis,
 				"mongodb.com/reapply-period", "1h"),
 			shouldUpdate: true,
 		},
@@ -123,7 +124,7 @@ func TestShouldUpdate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ShouldUpdate(tc.obj)
+			got, err := constate.ShouldUpdate(tc.obj)
 			if tc.wantErr != "" {
 				assert.ErrorContains(t, err, tc.wantErr)
 			} else {

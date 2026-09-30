@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package state
+package constate_test
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/crd2go/constate"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,7 @@ func TestReapplyPeriod(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newUnstructuredObj(tc.annotations)
-			got, ok, err := ReapplyPeriod(obj)
+			got, ok, err := constate.ReapplyPeriod(obj)
 			if tc.wantErr != "" {
 				assert.ErrorContains(t, err, tc.wantErr)
 			}
@@ -91,7 +92,7 @@ func TestReapplyTimestamp(t *testing.T) {
 	}{
 		{
 			name:        "valid timestamp",
-			annotations: map[string]string{AnnotationReapplyTimestamp: strconv.FormatInt(now, 10)},
+			annotations: map[string]string{constate.AnnotationReapplyTimestamp: strconv.FormatInt(now, 10)},
 			want:        now,
 			wantOk:      true,
 		},
@@ -103,7 +104,7 @@ func TestReapplyTimestamp(t *testing.T) {
 		},
 		{
 			name:        "invalid timestamp",
-			annotations: map[string]string{AnnotationReapplyTimestamp: "not-a-number"},
+			annotations: map[string]string{constate.AnnotationReapplyTimestamp: "not-a-number"},
 			want:        0,
 			wantOk:      false,
 			wantErr:     "parsing \"not-a-number\": invalid syntax",
@@ -113,7 +114,7 @@ func TestReapplyTimestamp(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newUnstructuredObj(tc.annotations)
-			got, ok, err := ReapplyTimestamp(obj)
+			got, ok, err := constate.ReapplyTimestamp(obj)
 			assertErrContains(t, tc.wantErr, err)
 			assert.Equal(t, tc.wantOk, ok)
 			if tc.wantOk {
@@ -136,8 +137,8 @@ func TestShouldReapply(t *testing.T) {
 		{
 			name: "should reapply (past+1h < now)",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   strconv.FormatInt(past, 10),
-				"mongodb.com/reapply-period": "1h",
+				constate.AnnotationReapplyTimestamp: strconv.FormatInt(past, 10),
+				"mongodb.com/reapply-period":        "1h",
 			},
 			want:    true,
 			wantErr: "",
@@ -145,8 +146,8 @@ func TestShouldReapply(t *testing.T) {
 		{
 			name: "should not reapply (future+1h > now)",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   strconv.FormatInt(future, 10),
-				"mongodb.com/reapply-period": "1h",
+				constate.AnnotationReapplyTimestamp: strconv.FormatInt(future, 10),
+				"mongodb.com/reapply-period":        "1h",
 			},
 			want:    false,
 			wantErr: "",
@@ -154,7 +155,7 @@ func TestShouldReapply(t *testing.T) {
 		{
 			name: "missing period",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp: strconv.FormatInt(past, 10),
+				constate.AnnotationReapplyTimestamp: strconv.FormatInt(past, 10),
 			},
 			want:    false,
 			wantErr: "",
@@ -168,8 +169,8 @@ func TestShouldReapply(t *testing.T) {
 		{
 			name: "invalid period",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   strconv.FormatInt(past, 10),
-				"mongodb.com/reapply-period": "bad",
+				constate.AnnotationReapplyTimestamp: strconv.FormatInt(past, 10),
+				"mongodb.com/reapply-period":        "bad",
 			},
 			want:    false,
 			wantErr: "invalid duration",
@@ -177,8 +178,8 @@ func TestShouldReapply(t *testing.T) {
 		{
 			name: "invalid timestamp",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   "bad",
-				"mongodb.com/reapply-period": "1h",
+				constate.AnnotationReapplyTimestamp: "bad",
+				"mongodb.com/reapply-period":        "1h",
 			},
 			want:    false,
 			wantErr: "invalid syntax",
@@ -188,7 +189,7 @@ func TestShouldReapply(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newUnstructuredObj(tc.annotations)
-			got, err := ShouldReapply(obj)
+			got, err := constate.ShouldReapply(obj)
 			assertErrContains(t, tc.wantErr, err)
 			assert.Equal(t, tc.want, got)
 		})
@@ -210,8 +211,8 @@ func TestPatchReapplyTimestamp(t *testing.T) {
 		{
 			name: "patch performed",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   pastMillis,
-				"mongodb.com/reapply-period": "1h",
+				constate.AnnotationReapplyTimestamp: pastMillis,
+				"mongodb.com/reapply-period":        "1h",
 			},
 			want:        time.Hour,
 			wantErr:     "",
@@ -227,8 +228,8 @@ func TestPatchReapplyTimestamp(t *testing.T) {
 		{
 			name: "patch error",
 			annotations: map[string]string{
-				AnnotationReapplyTimestamp:   pastMillis,
-				"mongodb.com/reapply-period": "1h",
+				constate.AnnotationReapplyTimestamp: pastMillis,
+				"mongodb.com/reapply-period":        "1h",
 			},
 			patchErr:    errors.New("fail"),
 			want:        0,
@@ -260,7 +261,7 @@ func TestPatchReapplyTimestamp(t *testing.T) {
 				Build()
 			ctx := context.Background()
 
-			period, err := PatchReapplyTimestamp(ctx, c, obj)
+			period, err := constate.PatchReapplyTimestamp(ctx, c, obj)
 			assertErrContains(t, tc.wantErr, err)
 			assert.Equal(t, tc.want, period)
 
@@ -268,7 +269,7 @@ func TestPatchReapplyTimestamp(t *testing.T) {
 			_ = c.Get(ctx, client.ObjectKeyFromObject(obj), fetched)
 
 			annot := fetched.GetAnnotations()
-			_, patched := annot[AnnotationReapplyTimestamp]
+			_, patched := annot[constate.AnnotationReapplyTimestamp]
 
 			assert.Equal(t, tc.wantPatched, patched, "Annotation patched?")
 		})

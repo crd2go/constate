@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package state
+package constate_test
 
 import (
 	"testing"
 
+	"github.com/crd2go/constate"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,13 +136,13 @@ func TestComputeStateTracker(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hash := ComputeStateTracker(tc.obj, tc.dependencies...)
+			hash := constate.ComputeStateTracker(tc.obj, tc.dependencies...)
 
 			// Hash should be non-empty
 			assert.NotEmpty(t, hash, "hash should not be empty")
 
 			// Hash should be deterministic (calling twice should produce same result)
-			hash2 := ComputeStateTracker(tc.obj, tc.dependencies...)
+			hash2 := constate.ComputeStateTracker(tc.obj, tc.dependencies...)
 			assert.Equal(t, hash, hash2, "hash should be deterministic")
 
 			// Store for uniqueness check

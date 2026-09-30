@@ -15,12 +15,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - run: go build ./...
+      - run: go install github.com/magefile/mage@latest
 
-      - run: go test -coverprofile=coverage.out ./...
-
-      - run: go tool cover -func=coverage.out
-
-      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
-
-      - run: govulncheck ./...
+      - run: mage -v ci

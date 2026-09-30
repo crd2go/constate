@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package state
+package constate
 
 import (
 	"context"
@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	
 	"github.com/crd2go/constate/state"
 )
 
@@ -639,3 +638,11 @@ type fakeCluster struct {
 
 func (f *fakeCluster) GetClient() client.Client   { return f.cli }
 func (f *fakeCluster) GetScheme() *runtime.Scheme { return f.cli.Scheme() }
+
+func assertErrContains(t *testing.T, wantErr string, err error) {
+	if wantErr == "" {
+		assert.NoError(t, err)
+	} else {
+		assert.ErrorContains(t, err, wantErr)
+	}
+}
