@@ -40,7 +40,7 @@ Implement the `StateHandler[T]` interface for your CRD type. Each method receive
 ```go
 type Result struct {
     reconcile.Result          // standard requeue/requeueAfter
-    NextState state.ResourceState
+    NextState constate.ResourceState
     StateMsg  string
 }
 ```
@@ -50,28 +50,28 @@ type MyResourceHandler struct {
     client client.Client
 }
 
-func (h *MyResourceHandler) HandleInitial(ctx context.Context, obj *MyResource) (state.Result, error) {
+func (h *MyResourceHandler) HandleInitial(ctx context.Context, obj *MyResource) (constate.Result, error) {
     if err := h.client.CreateUpstream(ctx, obj); err != nil {
-        return state.Result{}, err
+        return constate.Result{}, err
     }
-    return state.Result{
-        NextState: state.StateCreating,
+    return constate.Result{
+        NextState: constate.StateCreating,
         Result:    reconcile.Result{RequeueAfter: 5 * time.Second},
     }, nil
 }
 
-func (h *MyResourceHandler) HandleCreating(ctx context.Context, obj *MyResource) (state.Result, error) {
+func (h *MyResourceHandler) HandleCreating(ctx context.Context, obj *MyResource) (constate.Result, error) {
     ready, err := h.client.IsReady(ctx, obj)
     if err != nil {
-        return state.Result{}, err
+        return constate.Result{}, err
     }
     if !ready {
-        return state.Result{
-            NextState: state.StateCreating,
+        return constate.Result{
+            NextState: constate.StateCreating,
             Result:    reconcile.Result{RequeueAfter: 5 * time.Second},
         }, nil
     }
-    return state.Result{NextState: state.StateCreated}, nil
+    return constate.Result{NextState: constate.StateCreated}, nil
 }
 
 // ... implement remaining handlers
@@ -80,7 +80,7 @@ func (h *MyResourceHandler) HandleCreating(ctx context.Context, obj *MyResource)
 Wire it into controller-runtime:
 
 ```go
-reconciler := state.NewStateReconciler(&MyResourceHandler{client: mgr.GetClient()})
+reconciler := NewStateReconciler(&MyResourceHandler{client: mgr.GetClient()})
 if err := reconciler.SetupWithManager(mgr, controller.Options{}); err != nil {
     return err
 }

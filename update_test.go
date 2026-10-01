@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/crd2go/constate"
-	"github.com/crd2go/constate/state"
 )
 
 // statusObj embeds an Unstructured to satisfy metav1.Object and
@@ -40,7 +39,7 @@ func (s *statusObj) GetConditions() []metav1.Condition { return s.conditions }
 func newStatusObj(gen int64, setStateTracker bool, conditions []metav1.Condition, annotations ...string) *statusObj {
 	u := &unstructured.Unstructured{}
 
-	if previousState := meta.FindStatusCondition(conditions, state.StateCondition); previousState != nil {
+	if previousState := meta.FindStatusCondition(conditions, constate.StateCondition); previousState != nil {
 		u.SetGeneration(previousState.ObservedGeneration)
 		if setStateTracker {
 			u.SetAnnotations(map[string]string{
@@ -74,7 +73,7 @@ func TestShouldUpdate(t *testing.T) {
 			name: "generation changed",
 			obj: newStatusObj(2, true, []metav1.Condition{
 				{
-					Type:               state.StateCondition,
+					Type:               constate.StateCondition,
 					ObservedGeneration: 1,
 				},
 			}),
@@ -84,7 +83,7 @@ func TestShouldUpdate(t *testing.T) {
 			name: "generation did not change",
 			obj: newStatusObj(1, true, []metav1.Condition{
 				{
-					Type:               state.StateCondition,
+					Type:               constate.StateCondition,
 					ObservedGeneration: 1,
 				},
 			}),
@@ -94,11 +93,11 @@ func TestShouldUpdate(t *testing.T) {
 			name: "error status (ready reason error)",
 			obj: newStatusObj(1, true, []metav1.Condition{
 				{
-					Type:   state.ReadyCondition,
+					Type:   constate.ReadyCondition,
 					Reason: constate.ReadyReasonError,
 				},
 				{
-					Type:               state.StateCondition,
+					Type:               constate.StateCondition,
 					ObservedGeneration: 1,
 				},
 			}),
@@ -108,7 +107,7 @@ func TestShouldUpdate(t *testing.T) {
 			name: "reapply due (old timestamp + period)",
 			obj: newStatusObj(1, true, []metav1.Condition{
 				{
-					Type:               state.StateCondition,
+					Type:               constate.StateCondition,
 					ObservedGeneration: 1,
 				},
 			}, constate.AnnotationReapplyTimestamp, pastMillis,

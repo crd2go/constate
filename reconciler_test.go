@@ -36,15 +36,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/crd2go/constate/state"
 )
 
 func TestGetObservedGeneration(t *testing.T) {
 	type args struct {
 		obj        client.Object
 		prevStatus StatusObject
-		nextState  state.ResourceState
+		nextState  ResourceState
 	}
 	tests := []struct {
 		name string
@@ -56,7 +54,7 @@ func TestGetObservedGeneration(t *testing.T) {
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 3}},
 				prevStatus: newDummyObject(metav1.ObjectMeta{}, nil),
-				nextState:  state.StateInitial,
+				nextState:  StateInitial,
 			},
 			want: 3,
 		},
@@ -64,8 +62,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Switch from Creating to Created, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 2}},
-				prevStatus: prevStatusObject(state.StateCreating, 7),
-				nextState:  state.StateCreated,
+				prevStatus: prevStatusObject(StateCreating, 7),
+				nextState:  StateCreated,
 			},
 			want: 7,
 		},
@@ -73,8 +71,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Switch from Updating to Updated, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 3}},
-				prevStatus: prevStatusObject(state.StateUpdating, 9),
-				nextState:  state.StateUpdated,
+				prevStatus: prevStatusObject(StateUpdating, 9),
+				nextState:  StateUpdated,
 			},
 			want: 9,
 		},
@@ -82,8 +80,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Switch from Deleting to Deleted, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
-				prevStatus: prevStatusObject(state.StateDeleting, 2),
-				nextState:  state.StateDeleted,
+				prevStatus: prevStatusObject(StateDeleting, 2),
+				nextState:  StateDeleted,
 			},
 			want: 2,
 		},
@@ -91,8 +89,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Polling from Creating, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 2}},
-				prevStatus: prevStatusObject(state.StateCreating, 7),
-				nextState:  state.StateCreating,
+				prevStatus: prevStatusObject(StateCreating, 7),
+				nextState:  StateCreating,
 			},
 			want: 7,
 		},
@@ -100,8 +98,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Polling Updating, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 3}},
-				prevStatus: prevStatusObject(state.StateUpdating, 9),
-				nextState:  state.StateUpdating,
+				prevStatus: prevStatusObject(StateUpdating, 9),
+				nextState:  StateUpdating,
 			},
 			want: 9,
 		},
@@ -109,8 +107,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Polling Deleting, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
-				prevStatus: prevStatusObject(state.StateDeleting, 2),
-				nextState:  state.StateDeleting,
+				prevStatus: prevStatusObject(StateDeleting, 2),
+				nextState:  StateDeleting,
 			},
 			want: 2,
 		},
@@ -118,8 +116,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Start Deleting, uses observed generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 1}},
-				prevStatus: prevStatusObject(state.StateDeletionRequested, 2),
-				nextState:  state.StateDeleting,
+				prevStatus: prevStatusObject(StateDeletionRequested, 2),
+				nextState:  StateDeleting,
 			},
 			want: 2,
 		},
@@ -127,8 +125,8 @@ func TestGetObservedGeneration(t *testing.T) {
 			name: "Irrelevant state change, returns obj generation",
 			args: args{
 				obj:        &v1.Pod{ObjectMeta: metav1.ObjectMeta{Generation: 8}},
-				prevStatus: prevStatusObject(state.StateInitial, 4),
-				nextState:  state.StateInitial,
+				prevStatus: prevStatusObject(StateInitial, 4),
+				nextState:  StateInitial,
 			},
 			want: 8,
 		},
@@ -144,70 +142,70 @@ func TestGetObservedGeneration(t *testing.T) {
 func TestNewReadyCondition(t *testing.T) {
 	tests := []struct {
 		name       string
-		nextState  state.ResourceState
+		nextState  ResourceState
 		wantCond   metav1.ConditionStatus
 		wantReason string
 		wantMsg    string
 	}{
 		{
 			name:       "Initial - Pending",
-			nextState:  state.StateInitial,
+			nextState:  StateInitial,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
-			wantMsg:    "Resource is in initial state.",
+			wantMsg:    "Resource is in initial ",
 		},
 		{
 			name:       "ImportRequested - Pending",
-			nextState:  state.StateImportRequested,
+			nextState:  StateImportRequested,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
 			wantMsg:    "Resource is being imported.",
 		},
 		{
 			name:       "Creating - Pending",
-			nextState:  state.StateCreating,
+			nextState:  StateCreating,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
 			wantMsg:    "Resource is pending.",
 		},
 		{
 			name:       "Updating - Pending",
-			nextState:  state.StateUpdating,
+			nextState:  StateUpdating,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
 			wantMsg:    "Resource is pending.",
 		},
 		{
 			name:       "Deleting - Pending",
-			nextState:  state.StateDeleting,
+			nextState:  StateDeleting,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
 			wantMsg:    "Resource is pending.",
 		},
 		{
 			name:       "DeletionRequested - Pending",
-			nextState:  state.StateDeletionRequested,
+			nextState:  StateDeletionRequested,
 			wantCond:   metav1.ConditionFalse,
 			wantReason: ReadyReasonPending,
 			wantMsg:    "Resource is pending.",
 		},
 		{
 			name:       "Imported - Settled",
-			nextState:  state.StateImported,
+			nextState:  StateImported,
 			wantCond:   metav1.ConditionTrue,
 			wantReason: ReadyReasonSettled,
 			wantMsg:    "Resource is imported.",
 		},
 		{
 			name:       "Created - Settled",
-			nextState:  state.StateCreated,
+			nextState:  StateCreated,
 			wantCond:   metav1.ConditionTrue,
 			wantReason: ReadyReasonSettled,
 			wantMsg:    "Resource is settled.",
 		},
 		{
 			name:       "Updated - Settled",
-			nextState:  state.StateUpdated,
+			nextState:  StateUpdated,
 			wantCond:   metav1.ConditionTrue,
 			wantReason: ReadyReasonSettled,
 			wantMsg:    "Resource is settled.",
@@ -226,7 +224,7 @@ func TestNewReadyCondition(t *testing.T) {
 			cond := NewReadyCondition(result)
 			assert.Equal(t, tt.wantCond, cond.Status)
 			assert.Equal(t, tt.wantReason, cond.Reason)
-			assert.Equal(t, state.ReadyCondition, cond.Type)
+			assert.Equal(t, ReadyCondition, cond.Type)
 			assert.Equal(t, tt.wantMsg, cond.Message)
 		})
 	}
@@ -364,7 +362,7 @@ func TestReconcileState(t *testing.T) {
 			name: "simulate error",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateCreated, metav1.ConditionTrue, 1)},
+				[]metav1.Condition{newStateCondition(StateCreated, metav1.ConditionTrue, 1)},
 			),
 			modify: func(t *dummyObject) {
 				// Simulate a state that should cause an error in ReconcileState
@@ -384,7 +382,7 @@ func TestReconcileState(t *testing.T) {
 			name: "creating",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateCreating, metav1.ConditionFalse, 1)},
+				[]metav1.Condition{newStateCondition(StateCreating, metav1.ConditionFalse, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: true}}, nil
@@ -395,7 +393,7 @@ func TestReconcileState(t *testing.T) {
 			name: "created",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateCreated, metav1.ConditionTrue, 1)},
+				[]metav1.Condition{newStateCondition(StateCreated, metav1.ConditionTrue, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: false}}, nil
@@ -406,7 +404,7 @@ func TestReconcileState(t *testing.T) {
 			name: "updating",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateUpdating, metav1.ConditionFalse, 1)},
+				[]metav1.Condition{newStateCondition(StateUpdating, metav1.ConditionFalse, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: true}}, nil
@@ -417,7 +415,7 @@ func TestReconcileState(t *testing.T) {
 			name: "Updated",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateUpdated, metav1.ConditionTrue, 1)},
+				[]metav1.Condition{newStateCondition(StateUpdated, metav1.ConditionTrue, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: false}}, nil
@@ -428,7 +426,7 @@ func TestReconcileState(t *testing.T) {
 			name: "delete request",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateDeletionRequested, metav1.ConditionFalse, 1)},
+				[]metav1.Condition{newStateCondition(StateDeletionRequested, metav1.ConditionFalse, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: false}}, nil
@@ -439,7 +437,7 @@ func TestReconcileState(t *testing.T) {
 			name: "deleting",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateDeleting, metav1.ConditionFalse, 1)},
+				[]metav1.Condition{newStateCondition(StateDeleting, metav1.ConditionFalse, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: true}}, nil
@@ -450,7 +448,7 @@ func TestReconcileState(t *testing.T) {
 			name: "import request",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateImportRequested, metav1.ConditionFalse, 1)},
+				[]metav1.Condition{newStateCondition(StateImportRequested, metav1.ConditionFalse, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: false}}, nil
@@ -461,7 +459,7 @@ func TestReconcileState(t *testing.T) {
 			name: "importing",
 			initialObj: newDummyObject(
 				metav1.ObjectMeta{Namespace: "default", Name: "myobj"},
-				[]metav1.Condition{newStateCondition(state.StateImported, metav1.ConditionTrue, 1)},
+				[]metav1.Condition{newStateCondition(StateImported, metav1.ConditionTrue, 1)},
 			),
 			handleFn: func(context.Context, *dummyObject) (Result, error) {
 				return Result{Result: reconcile.Result{Requeue: false}}, nil
@@ -577,13 +575,13 @@ func (do *dummyObject) WithDeletedStaze() *dummyObject {
 	return copyOfDo
 }
 
-func prevStatusObject(state state.ResourceState, observedGen int64) StatusObject {
+func prevStatusObject(state ResourceState, observedGen int64) StatusObject {
 	return newDummyObject(metav1.ObjectMeta{}, []metav1.Condition{
 		newStateCondition(state, metav1.ConditionTrue, observedGen),
 	})
 }
 
-func newStateCondition(reason state.ResourceState, status metav1.ConditionStatus, observedGen int64) metav1.Condition {
+func newStateCondition(reason ResourceState, status metav1.ConditionStatus, observedGen int64) metav1.Condition {
 	return metav1.Condition{
 		Type:               "State",
 		Status:             status,
