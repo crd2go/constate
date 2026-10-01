@@ -497,6 +497,32 @@ func TestReconcileState(t *testing.T) {
 	}
 }
 
+func TestSetupWithManagerPreservesExplicitCluster(t *testing.T) {
+	dummyReconciler := &dummyPodReconciler{}
+	configuredCluster := &fakeCluster{}
+	r := NewStateReconciler(dummyReconciler, WithCluster[dummyObject](configuredCluster))
+
+	mgr := &stubManager{}
+	require.NoError(t, r.SetupWithManager(mgr, controller.Options{}))
+	assert.Equal(t, configuredCluster, r.cluster)
+	assert.NotEqual(t, mgr, r.cluster)
+}
+
+func TestSetupWithManagerFallsBackToManager(t *testing.T) {
+	dummyReconciler := &dummyPodReconciler{}
+	r := NewStateReconciler(dummyReconciler)
+
+	mgr := &stubManager{}
+	require.NoError(t, r.SetupWithManager(mgr, controller.Options{}))
+	assert.Equal(t, mgr, r.cluster)
+}
+
+// stubManager is a minimal manager stub; SetupWithManager never calls its
+// methods, so embedding the interface is sufficient.
+type stubManager struct {
+	ctrl.Manager
+}
+
 func addKnownTestTypes(sch *runtime.Scheme) {
 	sch.AddKnownTypes(
 		schema.GroupVersion{Group: "test.dummy.example.com", Version: "v1"},

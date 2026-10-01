@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -139,10 +139,10 @@ func TestNextState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := NextState(tt.state, tt.msg)
 			if tt.expectedErr != nil {
-				require.EqualError(t, err, tt.expectedErr.Error())
+				assert.EqualError(t, err, tt.expectedErr.Error())
 			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.expected, result)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
 			}
 		})
 	}
@@ -154,13 +154,29 @@ func TestErrorState(t *testing.T) {
 
 	s, returnedErr := ErrorState(st, err)
 
-	require.Equal(t, Result{
-		Result: reconcile.Result{
-			Requeue:      false,
-			RequeueAfter: 0,
-		},
+	assert.Equal(t, Result{
 		NextState: st,
-		StateMsg:  "",
 	}, s)
-	require.EqualError(t, returnedErr, err.Error())
+	assert.EqualError(t, returnedErr, err.Error())
+}
+
+func TestTransitionTo(t *testing.T) {
+	got := TransitionTo(StateUpdated)
+	want := Result{NextState: StateUpdated}
+
+	assert.Equal(t, want, got)
+	assert.Equal(t, reconcile.Result{}, got.Result, "TransitionTo must not request a requeue")
+}
+
+func TestRequeueAfter(t *testing.T) {
+	delay := 30 * time.Second
+	got := RequeueAfter(StateCreating, delay)
+	want := Result{
+		Result:    reconcile.Result{RequeueAfter: delay},
+		NextState: StateCreating,
+	}
+
+	assert.Equal(t, want, got)
+	assert.Equal(t, delay, got.RequeueAfter, "only RequeueAfter should be set in the embedded reconcile.Result")
+	assert.Equal(t, reconcile.Result{RequeueAfter: delay}, got.Result)
 }

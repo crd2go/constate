@@ -35,23 +35,74 @@ States are stored as `State` and `Ready` status conditions on the resource, so t
 
 ## Usage
 
-Implement the `StateHandler[T]` interface for your CRD type. Each method receives the fully fetched object and returns a `Result` carrying the next state.
+Thanks to constate you write a handler but you still need to register a controller-runtime reconciler at setup time.
+
+The way you do that is first you implement the handler (more on that later) and you wrap it within a reconciler that can be registered in the controller manager as usual:
 
 ```go
-type Result struct {
-    reconcile.Result          // standard requeue/requeueAfter
-    NextState constate.ResourceState
-    StateMsg  string
+func setup(mgr ctrl.Manager) error {
+  ...
+  h := NewMyResourceHandler(...)
+  reconciler := constate.NewStateReconciler(h)
+  if err := reconciler.SetupWithManager(mgr, controller.Options{}); err != nil {
+    return err
+  }
+  ...
 }
 ```
 
-```go
-type MyResourceHandler struct {
-    client client.Client
-}
+### Simple handler
 
+A handler implements the `constate.StateHandler[T]` interface of a `T` resource types.
+
+Implement all `Handle...` lifecycle methods plus `SetupWithManager` and `For`. To implement only the relevant handle methods to your resource, you can embed `constate.FallbackHandler[T]` within your struct, which will fail loudly and explciciltly if any of the non implemented methods is used, except for `For`, which still must be implemented explicitly, flagged at compile time.
+
+Example:
+```go
+...
+  // MyResourceHandler implements constate.StateHandler
+  type MyResourceHandler struct {
+    constate.FallbackHandler[MyResource] // allows to only implement used handle methods
+    apiClient APIClient // upstream API client injected by operator
+    predicates builder.Predicates
+    ...
+  }
+
+  func (h *MyResourceHandler) For() (client.Object, builder.Predicates) {
+    return &MyResource{}, builder.WithPredicates(h.predicates...)
+  }
+
+  func (h *MyResourceHandler) SetupWithManager(mgr ctrl.Manager, r reconcile.Reconciler, opts controller.Options) error {
+    ...
+  }
+
+  func (h *MyResourceHandler) HandleInitial(ctx context.Context, obj *MyResource) (constate.Result, error) {
+    if err := h.apiClient.Create(ctx, obj); err != nil {
+        return constate.Result{}, err
+    }
+    return constate.RequeueAfter(constate.StateCreating, 5*time.Second), nil
+  }
+
+  func (h *MyResourceHandler) HandleCreating(ctx context.Context, obj *MyResource) (constate.Result, error) {
+    ready, err := h.apiClient.IsReady(ctx, obj)
+    if err != nil {
+        return constate.Result{}, err
+    }
+    if !ready {
+        return constate.RequeueAfter(constate.StateCreating, 5*time.Second), nil
+    }
+    return constate.TransitionTo(constate.StateCreated), nil
+  }
+  // implementation of all remaining relevant interface methods follows
+```
+
+#### Raw API escape hatch
+
+`constate.TransitionTo` and `constate.RequeueAfter` are convenience constructors for the plain `constate.Result` struct. You can always construct a `Result` literal directly, and `NewStateReconciler` works either way:
+
+```go
 func (h *MyResourceHandler) HandleInitial(ctx context.Context, obj *MyResource) (constate.Result, error) {
-    if err := h.client.CreateUpstream(ctx, obj); err != nil {
+    if err := h.apiClient.Create(ctx, obj); err != nil {
         return constate.Result{}, err
     }
     return constate.Result{
@@ -59,31 +110,52 @@ func (h *MyResourceHandler) HandleInitial(ctx context.Context, obj *MyResource) 
         Result:    reconcile.Result{RequeueAfter: 5 * time.Second},
     }, nil
 }
-
-func (h *MyResourceHandler) HandleCreating(ctx context.Context, obj *MyResource) (constate.Result, error) {
-    ready, err := h.client.IsReady(ctx, obj)
-    if err != nil {
-        return constate.Result{}, err
-    }
-    if !ready {
-        return constate.Result{
-            NextState: constate.StateCreating,
-            Result:    reconcile.Result{RequeueAfter: 5 * time.Second},
-        }, nil
-    }
-    return constate.Result{NextState: constate.StateCreated}, nil
-}
-
-// ... implement remaining handlers
 ```
 
-Wire it into controller-runtime:
+### Multi-version handling
+
+When resources are managed by APIs with support for multiple versions `constate` provides a `VersionDispatcher` embeddable helper:
+- Embed a pointer to `VersionDispatcher[T]` within your top-level handler.
+- Implement a `Selector func(ctx context.Context, obj *T) (StateHandler[T], error)`.
+- Ensure your top level handler initializes its embedded dispatcher with `constate.NewVersionDispatcher(selector)`.
+- Implement `SetupWithManager`, `For` and relevant `Handle...` methods, as usual. The dispatcher does not cover `For` or `SetupWithManager`.
+- Provide a `constate.Selector[T]` function that decides which handler must handle the reconciliation given the resource version.
+- Most likely need to keep track of the various version handlers within your top-level handler.
+
+Note that `Selector[T]` returns a `StateHandler[T]`, so each selected handler must satisfy the full `constate.StateHandler[T]` interface, including `For` and `SetupWithManager`. Those registration methods are simply not used by the top-level controller setup, but need to be implemented either explicitly. Remenber `FallbackHandler[T]` will not cover `For`.
+
+Example:
 
 ```go
-reconciler := NewStateReconciler(&MyResourceHandler{client: mgr.GetClient()})
-if err := reconciler.SetupWithManager(mgr, controller.Options{}); err != nil {
-    return err
-}
+...
+  // MyMultiVersionResourceHandler implements constate.StateHandler
+  type MyMultiVersionResourceHandler struct {
+    *constate.VersionDispatcher[MyResource]
+    apiClient APIClient // upstream API client injected by operator
+    predicates builder.Predicates
+    handlers map[string]constate.StateHandler[MyResource] // per version handlers
+    ...
+  }
+
+  func NewMyMultiVersionResourceHandler(...) *MyMultiVersionResourceHandler {
+    h := &MyMultiVersionResourceHandler{...}
+    // The dispatcher must be initialized with a selector
+    h.VersionDispatcher = constate.NewVersionDispatcher(h.Selector)
+    return h
+  }
+
+  func (h *MyMultiVersionResourceHandler) Selector(ctx context.Context, obj *MyResource) (StateHandler[MyResource], error) {
+    ...
+  }
+
+  func (h *MyMultiVersionResourceHandler) For() (client.Object, builder.Predicates) { ... }
+
+  func (h *MyMultiVersionResourceHandler) SetupWithManager(mgr ctrl.Manager, r reconcile.Reconciler, opts controller.Options) error {
+    ...
+  }
+  // No need to implement Handle... methods as those are promoted from the
+  // embedded dispatcher, which calls the appropriate handler for each state.
+  // The top-level `For` and `SetupWithManager` are supplied by the outer handler.
 ```
 
 ## Importing existing resources
