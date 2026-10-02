@@ -83,6 +83,23 @@ func NextState(s ResourceState, msg string) (Result, error) {
 	}
 }
 
+// TransitionTo returns a Result that transitions the resource to the given
+// state without requesting a requeue. It is equivalent to the literal
+// Result{NextState: state}.
+func TransitionTo(state ResourceState) Result {
+	return Result{NextState: state}
+}
+
+// RequeueAfter returns a Result that transitions the resource to the given
+// state and requests a requeue after the given delay. It is equivalent to
+// the literal Result{Result: reconcile.Result{RequeueAfter: delay}, NextState: state}.
+func RequeueAfter(state ResourceState, delay time.Duration) Result {
+	return Result{
+		Result:    reconcile.Result{RequeueAfter: delay},
+		NextState: state,
+	}
+}
+
 func ErrorState(s ResourceState, err error) (Result, error) {
 	return Result{
 		NextState: s,

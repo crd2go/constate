@@ -105,7 +105,9 @@ func NewStateReconciler[T any](target StateHandler[T], options ...ReconcilerOpti
 }
 
 func (r *Reconciler[T]) SetupWithManager(mgr ctrl.Manager, defaultOptions controller.Options) error {
-	r.cluster = mgr
+	if r.cluster == nil {
+		r.cluster = mgr
+	}
 	return r.reconciler.SetupWithManager(mgr, r, defaultOptions)
 }
 
